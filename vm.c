@@ -320,6 +320,9 @@ copyuvm(pde_t *pgdir, uint sz)
   uint pa, i, flags;
   char *mem;
 
+  struct proc *curproc = myproc();
+
+
   if((d = setupkvm()) == 0)
     return 0;
   for(i = 0; i < sz; i += PGSIZE){
@@ -335,6 +338,26 @@ copyuvm(pde_t *pgdir, uint sz)
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
       goto bad;
   }
+
+  //works by rounding down the page enough to make rooom for the page so it doesnt interfere with xv6 memory
+  uint kb = KERNBASE-1;
+  kb = PGROUNDDOWN(kb);
+
+  //had to alter this to make room for multiple pages
+  for(i = kb; i > kb - (curproc->pages)*PGSIZE; i -= PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("copyuvm: pte should exist 2");
+    if(!(*pte & PTE_P))
+      panic("copyuvm: page not present 2");
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    if((mem = kalloc()) == 0)
+      goto bad;
+    memmove(mem, (char*)P2V(pa), PGSIZE);
+    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
+      goto bad;
+  }
+  
   return d;
 
 bad:

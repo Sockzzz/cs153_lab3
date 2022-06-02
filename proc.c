@@ -199,6 +199,8 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+  //added lab 3, facilitates correct memory handing for child via parent
+  np->pages = curproc->pages;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
